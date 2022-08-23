@@ -25,14 +25,25 @@
 
 #define LoadFunction dlsym  
 
-global_variable void * vulkan_library;
+struct load_pointers_state{
+ void * vulkan_library;
+};
 
-#define GLOBAL_VULKAN_FUNCTION_BUILDER(name) PFN_##name name; name = (PFN_##name)LoadFunction( vulkan_library, #name ); 
+global_variable load_pointers_state  global_pointer_state= {};
+
+#define GLOBAL_VULKAN_FUNCTION_BUILDER(name) PFN_##name name; name = (PFN_##name)LoadFunction( global_pointer_state.vulkan_library, #name ); 
                                                                            
 #define INSTANCE_VULKAN_FUNCTION_BUILDER( instance, name) PFN_##name name; name = (PFN_##name)vkGetInstanceProcAddr( instance, #name );      
 
 #define DEVICE_VULKAN_FUNCTION_BUILDER(device, name) PFN_##name name; name = (PFN_##name)vkGetDeviceProcAddr( device, #name );  
-                                                                                                                           
+
+void load_global_function_pointers(load_pointers_state pointer_state){
+
+   pointer_state.vulkan_library = dlopen("libvulkan.so", RTLD_NOW); 
+   GLOBAL_VULKAN_FUNCTION_BUILDER(vkGetInstanceProcAddr);
+
+};                                      
+
 #define ArraySize(arr) sizeof((arr)) / sizeof((arr[0]))
 
 #define VK_CHECK(result)                         \
@@ -68,6 +79,17 @@ struct vulkan_types{
     VkImageView test_image_view;
     VkImage test_image;
 };
+
+
+void load_instance_level_vulkan_functions(vulkan_types * vk_context){
+
+
+};
+
+void load_device_level_vulkan_functions(vulkan_types * vk_context){
+
+
+}
 
 struct xcb_types{
 
@@ -401,52 +423,118 @@ VkPipelineVertexInputStateCreateInfo create_vertex_input_state(){
  return vertex_input_state;
 };
 
-VkPipelineColorBlendAttachmentState create_colour_blend_attachment(){
+VkPipelineColorBlendAttachmentState create_color_blend_attach_state(VkBool32 blend_enable, VkColorComponentFlags colour_write_mask){
 
-  VkPipelineColorBlendAttachmentState colour_blend_attachment = {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-  colour_blend_attachment
+  VkPipelineColorBlendAttachmentState colour_blend_attachment = {};
+  colour_blend_attachment.blendEnable = blend_enable;
+  /*colour_blend_attachment.srcColorBlendFactor = 
+  colour_blend_attachment.dstColorBlendFactor = 
+  colour_blend_attachment.colorBlendOp = 
+  colour_blend_attachment.srcAlphaBlendFactor = 
+  colour_blend_attachment.dstAlphaBlendFactor = 
+  colour_blend_attachment.alphaBlendOp = */
+  colour_blend_attachment.colorWriteMask = colour_write_mask;
+
+  return colour_blend_attachment;
 
 }
 
-/*
-VkPipelineVertexInputStateCreateInfo vertex_input_state = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-VkPipelineColorBlendAttachmentState colour_blend_attachment = {};
-colour_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT  | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+VkPipelineColorBlendStateCreateInfo create_colour_state(uint32_t attachment_count, const VkPipelineColorBlendAttachmentState * p_attachments){
 
-colour_blend_attachment.blendEnable = VK_FALSE;
-VkPipelineColorBlendStateCreateInfo colour_blend_state = {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-colour_blend_state.pAttachments = &colour_blend_attachment;
-colour_blend_state.attachmentCount = 1;
+  VkPipelineColorBlendStateCreateInfo colour_blend_state= {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+ /* colour_blend_state.pNext = 
+  colour_blend_state.flags = 
+  colour_blend_state.logicOpEnable = 
+  colour_blend_state.logicOp = */
+  colour_blend_state.attachmentCount = attachment_count;
+  colour_blend_state.pAttachments = p_attachments;
+ // colour_blend_state.blendConstants = 
 
-VkPipelineInputAssemblyStateCreateInfo input_assembly = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
-input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  return colour_blend_state;
 
-VkViewport viewport = {};
-viewport.maxDepth = 1.0;
-VkRect2D scissor = {};
+}
 
-VkPipelineViewportStateCreateInfo viewport_state = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
-viewport_state.pViewports = &viewport;
-viewport_state.viewportCount = 1;
-viewport_state.pScissors = &scissor;
-viewport_state.scissorCount = 1;
+VkPipelineInputAssemblyStateCreateInfo create_input_assembly(VkPrimitiveTopology input_assembly_topology){
 
-VkPipelineRasterizationStateCreateInfo  rasterization_state = {VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-rasterization_state.cullMode = VK_CULL_MODE_BACK_BIT;
-rasterization_state.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-rasterization_state.polygonMode = VK_POLYGON_MODE_FILL;
-rasterization_state.lineWidth = 1.0f;
+  VkPipelineInputAssemblyStateCreateInfo input_assembly =  {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+  //input_assembly.pNext = 
+  //input_assembly.flags = 
+  input_assembly.topology = input_assembly_topology;
+  //input_assembly.primitiveRestartEnable = 
 
-VkPipelineMultisampleStateCreateInfo multi_sample_state ={VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-multi_sample_state.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;*/
+  return input_assembly;
+
+}
+
+VkPipelineViewportStateCreateInfo create_viewport_state(uint32_t viewport_count, const VkViewport * view_port, uint32_t scissor_count, const VkRect2D * scissor){
+
+  VkPipelineViewportStateCreateInfo viewport_state =  {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+ // viewport_state.pNext = 
+ // viewport_state.flags = 
+  viewport_state.viewportCount = viewport_count;
+  viewport_state.pViewports = view_port;
+  viewport_state.scissorCount = scissor_count;
+  viewport_state.pScissors = scissor;
+
+  return viewport_state;
+
+}
+
+VkPipelineRasterizationStateCreateInfo create_rasterization_state(
+  VkPolygonMode polygon_mode, VkCullModeFlags cull_mode, VkFrontFace front_face, float line_width){
+
+  VkPipelineRasterizationStateCreateInfo rasterization_state = {VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+  /*rasterization_state.pNext = 
+  rasterization_state.flags = 
+  rasterization_state.depthClampEnable = 
+  rasterization_state.rasterizerDiscardEnable = */
+  rasterization_state.polygonMode = polygon_mode;
+  rasterization_state.cullMode = cull_mode;
+  rasterization_state.frontFace = front_face;
+  /*rasterization_state.depthBiasEnable = 
+  rasterization_state.depthBiasConstantFactor = 
+  rasterization_state.depthBiasClamp = 
+  rasterization_state.depthBiasSlopeFactor = */
+  rasterization_state.lineWidth = line_width;
+
+  return rasterization_state;
+
+}
+
+VkPipelineMultisampleStateCreateInfo create_multisample_state(VkSampleCountFlagBits rasterization_samples){
+
+  VkPipelineMultisampleStateCreateInfo multi_sample_state ={VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+  //multi_sample_state.pNext = 
+  //multi_sample_state.flags = 
+  multi_sample_state.rasterizationSamples = rasterization_samples;
+ /* multi_sample_state.sampleShadingEnable = 
+  multi_sample_state.minSampleShading = 
+  multi_sample_state.pSampleMask = 
+  multi_sample_state.alphaToCoverageEnable = 
+  multi_sample_state.alphaToOneEnable = */
+
+  return multi_sample_state;
+
+}
+
+VkCommandPoolCreateInfo create_command_pool(VkCommandPoolCreateFlagBits command_flags, uint32_t queue_family_index){
+
+  VkCommandPoolCreateInfo command_pool_info = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+  command_pool_info.pNext = NULL;
+  command_pool_info.flags = command_flags;
+  command_pool_info.queueFamilyIndex = queue_family_index;
+
+  return command_pool_info;
+
+}
 
 bool vk_init(vulkan_types * vk_context, xcb_types * xcb_context){
 
-  vulkan_library = dlopen("libvulkan.so", RTLD_NOW); 
+ load_global_function_pointers(global_pointer_state);
 
   vk_context->allocator = 0;
 
- GLOBAL_VULKAN_FUNCTION_BUILDER(vkGetInstanceProcAddr);
+ //GLOBAL_VULKAN_FUNCTION_BUILDER(vkGetInstanceProcAddr);
 
   VkApplicationInfo app_info = create_app_info("Petes engine", "Undefined", VK_API_VERSION_1_2, VK_MAKE_VERSION(1, 0, 0), VK_MAKE_VERSION(1, 0, 0) );
 
@@ -603,13 +691,10 @@ DEVICE_VULKAN_FUNCTION_BUILDER(vk_context->logical_device, vkCreateFramebuffer);
 
 /* not a comment out VK_CHECK(vkCreateFramebuffer(vk_context->logical_device, &framebuffer_info, vk_context->allocator, &vk_context->framebuffers));*/
 
-VkCommandPoolCreateInfo command_pool_info = create_command_pool()
- = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-command_pool_info.queueFamilyIndex = vk_context->graphics_index;
-command_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+ /*also not a comment ooutVkCommandPoolCreateInfo command_pool_info = create_command_pool();*/
 
  DEVICE_VULKAN_FUNCTION_BUILDER(vk_context->logical_device, vkCreateCommandPool);
-VK_CHECK(vkCreateCommandPool(vk_context->logical_device, &command_pool_info, 0, &vk_context->command_pool));
+//VK_CHECK(vkCreateCommandPool(vk_context->logical_device, &command_pool_info, 0, &vk_context->command_pool));
 
 VkCommandBufferAllocateInfo alloc_info = cmd_alloc_info(vk_context->command_pool);
 
@@ -635,39 +720,8 @@ layout_info.pSetLayouts = 0; //&vk_context->set_layout;
 DEVICE_VULKAN_FUNCTION_BUILDER(vk_context->logical_device, vkCreatePipelineLayout);
 
 VK_CHECK(vkCreatePipelineLayout(vk_context->logical_device, &layout_info, vk_context->allocator, &vk_context->pipeline_layout));
-/*
-VkPipelineVertexInputStateCreateInfo vertex_input_state = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-VkPipelineColorBlendAttachmentState colour_blend_attachment = {};
-colour_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT  | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
-colour_blend_attachment.blendEnable = VK_FALSE;
-VkPipelineColorBlendStateCreateInfo colour_blend_state = {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-colour_blend_state.pAttachments = &colour_blend_attachment;
-colour_blend_state.attachmentCount = 1;
-
-VkPipelineInputAssemblyStateCreateInfo input_assembly = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
-input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
-VkViewport viewport = {};
-viewport.maxDepth = 1.0;
-VkRect2D scissor = {};
-
-VkPipelineViewportStateCreateInfo viewport_state = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
-viewport_state.pViewports = &viewport;
-viewport_state.viewportCount = 1;
-viewport_state.pScissors = &scissor;
-viewport_state.scissorCount = 1;
-
-VkPipelineRasterizationStateCreateInfo  rasterization_state = {VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-rasterization_state.cullMode = VK_CULL_MODE_BACK_BIT;
-rasterization_state.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-rasterization_state.polygonMode = VK_POLYGON_MODE_FILL;
-rasterization_state.lineWidth = 1.0f;
-
-VkPipelineMultisampleStateCreateInfo multi_sample_state ={VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-multi_sample_state.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-*/
-VkShaderModule vertexShader, fragmentShader;
+/*VkPipelineColorBlendAttachmentState colour_blend_attachment = {}; dont forget about this!*/
 
   return true;
 //notes: switch context->allocator, do macro madness for loading functions, = done. maybe mka e afucntion loader with cmjratori switch?
